@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Plant Disease Demo</title>
+  <style>
+    img { max-width: 300px; max-height: 300px; display: block; margin: 10px 0; }
+    #result { margin-top: 10px; font-family: sans-serif; }
+  </style>
+</head>
+<body>
+  <h3>上传照片</h3>
+  <input type="file" id="fileInput" accept="image/*">
+  <img id="preview" style="display:none;">
+  <button id="btn" disabled>开始识别</button>
+
+  <div id="result"></div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const preview   = document.getElementById('preview');
+    const btn       = document.getElementById('btn');
+    const resultBox = document.getElementById('result');
+
+    let base64Image = '';
+
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = evt => {
+        base64Image = evt.target.result;
+        preview.src = base64Image;
+        preview.style.display = 'block';
+        btn.disabled = false;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      resultBox.textContent = '识别中…';
+      try {
+        const res = await fetch('/infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64Image }) // 直接发 Base64 字符串
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          resultBox.innerHTML = '<b>识别结果：</b><br>' +
+            data.result.map(r => `${r.label}  (${(r.score*100).toFixed(1)}%)`).join('<br>');
+        } else {
+          resultBox.textContent = '识别失败：' + data.error;
+        }
+      } catch (err) {
+        resultBox.textContent = '网络或服务器错误：' + err;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
